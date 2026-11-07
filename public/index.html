@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -5,36 +6,122 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tareas DevOps — ITLA</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
-    h1 { color: #1f3b63; } li.hecha { text-decoration: line-through; color: #777; }
-    form { display: flex; gap: 8px; } input { flex: 1; padding: 8px; } button { padding: 8px 14px; }
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 640px;
+      margin: 40px auto;
+      padding: 0 16px;
+    }
+
+    h1 { color: #1f3b63; }
+    li.hecha { text-decoration: line-through; color: #777; }
+
+    form {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 8px;
+    }
+
+    button { padding: 8px 14px; }
+
+    .eliminar {
+      margin-left: 10px;
+      padding: 4px 8px;
+    }
   </style>
 </head>
 <body>
   <h1>Lista de tareas</h1>
-  <p id="aviso">Versión estática (GitHub Pages). Ejecuta <code>npm start</code> para usar la API.</p>
-  <form id="f"><input id="t" placeholder="Nueva tarea" required><button>Agregar</button></form>
+
+  <p id="aviso">
+    Versión estática (GitHub Pages). Ejecuta
+    <code>npm start</code> para usar la API.
+  </p>
+
+  <form id="f">
+    <input id="t" placeholder="Nueva tarea" required>
+    <button>Agregar</button>
+  </form>
+
   <ul id="l"></ul>
+
   <script>
     const l = document.getElementById('l');
+
     async function cargar() {
       try {
-        const r = await fetch('/api/tareas'); if (!r.ok) throw 0;
+        const r = await fetch('/api/tareas');
+        if (!r.ok) throw new Error('No se pudieron cargar las tareas');
+
         document.getElementById('aviso').hidden = true;
         l.innerHTML = '';
+
         (await r.json()).forEach(t => {
-          const li = document.createElement('li'); li.textContent = t.titulo;
-          if (t.completada) li.className = 'hecha';
-          li.onclick = async () => { await fetch('/api/tareas/' + t.id, { method: 'PATCH' }); cargar(); };
+          const li = document.createElement('li');
+          li.textContent = t.titulo;
+
+          if (t.completada) {
+            li.className = 'hecha';
+          }
+
+          li.onclick = async () => {
+            await fetch('/api/tareas/' + t.id, { method: 'PATCH' });
+            cargar();
+          };
+
+          const eliminar = document.createElement('button');
+          eliminar.textContent = 'Eliminar';
+          eliminar.className = 'eliminar';
+
+          eliminar.onclick = async (e) => {
+            e.stopPropagation();
+
+            const respuesta = await fetch('/api/tareas/' + t.id, {
+              method: 'DELETE'
+            });
+
+            if (respuesta.ok) {
+              cargar();
+            } else {
+              alert('No se pudo eliminar la tarea');
+            }
+          };
+
+          li.appendChild(eliminar);
           l.appendChild(li);
         });
-      } catch (e) { /* sin API: modo estático */ }
+      } catch (e) {
+        // Sin API: se muestra el aviso de modo estático.
+      }
     }
+
     document.getElementById('f').onsubmit = async e => {
       e.preventDefault();
-      await fetch('/api/tareas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: document.getElementById('t').value }) });
-      document.getElementById('t').value = ''; cargar();
+
+      try {
+        const respuesta = await fetch('/api/tareas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo: document.getElementById('t').value
+          })
+        });
+
+        if (!respuesta.ok) {
+          throw new Error('No se pudo agregar la tarea');
+        }
+
+        document.getElementById('t').value = '';
+        cargar();
+      } catch (error) {
+        alert('No se pudo agregar la tarea. Comprueba que el servidor esté iniciado.');
+      }
     };
+
     cargar();
   </script>
 </body>
