@@ -54,3 +54,61 @@ docker run -p 3000:3000 tareas-devops
 - Análisis estático real (ESLint) y umbral de cobertura mínima.
 - Monitoreo: usar `/metrics` y los logs JSON; definir al menos una **alerta** (ej. errores > 0).
 - Documentar: guía de instalación, manual de operaciones y lecciones aprendidas.
+
+## Endpoint agregado en la Práctica 3
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| DELETE | `/api/tareas/:id` | Elimina una tarea; responde 200 si la elimina y 404 si no existe |
+
+El frontend (`public/index.html`) tiene un botón **Eliminar** en cada tarea.
+
+## Pruebas agregadas
+
+1. `DELETE /api/tareas/:id` elimina una tarea.
+2. `DELETE` de una tarea inexistente devuelve 404.
+
+Se ejecutan con `npm test` (Jest + Supertest), que también genera el reporte de cobertura.
+
+## El pipeline paso a paso
+
+Archivo: `.github/workflows/ci.yml`. Se ejecuta en cada **push** y **pull request** hacia `main`.
+
+### Job 1 — Build y pruebas (`build-test`)
+
+| Etapa | Qué hace |
+|---|---|
+| `actions/checkout@v4` | Descarga el código del repositorio en el runner. |
+| `actions/setup-node@v4` | Instala Node.js 20. |
+| `npm install` | Instala las dependencias. |
+| Revisión estática (`npm run lint`) | Verifica la sintaxis de `app.js` y `server.js` con `node --check`. |
+| Pruebas con cobertura (`npm test`) | Ejecuta Jest. Si una prueba falla, el pipeline se pone en **rojo** y no se despliega. |
+| Construir imagen Docker | Construye la imagen para comprobar que el `Dockerfile` es válido. |
+
+### Job 2 — Despliegue a GitHub Pages (`deploy-pages`)
+
+Solo se ejecuta si `build-test` terminó bien (`needs: build-test`) y el evento es un **push a `main`**.
+
+| Etapa | Qué hace |
+|---|---|
+| `actions/configure-pages@v5` | Prepara la configuración de Pages. |
+| `actions/upload-pages-artifact@v3` | Empaqueta la carpeta `public/`. |
+| `actions/deploy-pages@v4` | Publica el artefacto y devuelve la URL de la página. |
+
+> GitHub Pages solo sirve archivos estáticos: en la página publicada se ve el aviso de «versión estática». La API se usa con `npm start`.
+
+## Instrucciones de despliegue
+
+1. Repositorio **público** en GitHub.
+2. **Settings → Pages → Source: GitHub Actions**.
+3. Haz push a `main`: el workflow se ejecuta solo.
+4. En **Actions**, abre el run y busca la URL en el job *Despliegue a GitHub Pages*.
+
+## Demostración rojo → verde
+
+1. Se cambió a propósito una prueba para que fallara y se hizo push → pipeline en **rojo** (despliegue omitido).
+2. Se corrigió la prueba y se hizo push → pipeline en **verde** (pruebas OK y despliegue realizado).
+
+## Contribuir
+
+Consulta [CONTRIBUTING.md](CONTRIBUTING.md).
