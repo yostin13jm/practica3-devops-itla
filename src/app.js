@@ -1,3 +1,4 @@
+
 // Aplicación web mínima: lista de tareas en memoria + endpoints de salud y métricas.
 const express = require('express');
 const path = require('path');
@@ -16,13 +17,23 @@ function createApp() {
     const t0 = Date.now();
     res.on('finish', () => {
       if (res.statusCode >= 500) metricas.errores++;
-      if (process.env.NODE_ENV !== 'test') console.log(JSON.stringify({ nivel: 'info', metodo: req.method, ruta: req.path, estado: res.statusCode, ms: Date.now() - t0 }));
+      if (process.env.NODE_ENV !== 'test') {
+        console.log(JSON.stringify({
+          nivel: 'info',
+          metodo: req.method,
+          ruta: req.path,
+          estado: res.statusCode,
+          ms: Date.now() - t0
+        }));
+      }
     });
     next();
   });
 
+  // Comprobar el estado de la aplicación.
   app.get('/health', (req, res) => res.json({ estado: 'ok' }));
 
+  // Consultar métricas de la aplicación.
   app.get('/metrics', (req, res) => res.json({
     solicitudes: metricas.solicitudes,
     errores: metricas.errores,
@@ -30,21 +41,56 @@ function createApp() {
     segundosActivo: Math.round((Date.now() - metricas.inicio) / 1000)
   }));
 
+  // Obtener todas las tareas.
   app.get('/api/tareas', (req, res) => res.json(tareas));
 
+  // Crear una nueva tarea.
   app.post('/api/tareas', (req, res) => {
-    const titulo = (req.body && typeof req.body.titulo === 'string') ? req.body.titulo.trim() : '';
-    if (!titulo) return res.status(400).json({ error: 'El título es obligatorio' });
-    const tarea = { id: tareas.length + 1, titulo, completada: false };
+    const titulo = (req.body && typeof req.body.titulo === 'string')
+      ? req.body.titulo.trim()
+      : '';
+
+    if (!titulo) {
+      return res.status(400).json({ error: 'El título es obligatorio' });
+    }
+
+    const tarea = {
+      id: tareas.length + 1,
+      titulo,
+      completada: false
+    };
+
     tareas.push(tarea);
     res.status(201).json(tarea);
   });
 
+  // Marcar una tarea como completada o pendiente.
   app.patch('/api/tareas/:id', (req, res) => {
     const tarea = tareas.find(t => t.id === Number(req.params.id));
-    if (!tarea) return res.status(404).json({ error: 'Tarea no encontrada' });
+
+    if (!tarea) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+
     tarea.completada = !tarea.completada;
     res.json(tarea);
+  });
+
+  // Eliminar una tarea por su ID.
+  app.delete('/api/tareas/:id', (req, res) => {
+    const indice = tareas.findIndex(
+      t => t.id === Number(req.params.id)
+    );
+
+    if (indice === -1) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+
+    tareas.splice(indice, 1);
+
+    res.json({
+      mensaje: 'Tarea eliminada correctamente'
+    });
   });
 
   return app;
